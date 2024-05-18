@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPair, encryptWithRSA, decryptWithRSA } from '../utils/encryption'
+import { generateRSAKeyPair, encryptWithRSA, decryptWithRSA } from '../utils/encryption';
 
 const EncryptionForm: React.FC = () => {
     const [iv, setIV] = useState('');
@@ -9,39 +9,65 @@ const EncryptionForm: React.FC = () => {
     const [encryptedAesKey, setEncryptedAesKey] = useState('');
     const [dataToEncrypt, setDataToEncrypt] = useState('');
     const [encryptedData, setEncryptedData] = useState('');
-    const [decryptedData, setDecryptedData] = useState('')
+    const [decryptedData, setDecryptedData] = useState('');
+    const [error, setError] = useState<string>('');
 
+    useEffect(() => {
+        if (!publicKey || !privateKey) {
+            setError('Please generate public and private keys before encrypting or decrypting data.');
+        } else {
+            setError('');
+        }
+    }, [publicKey, privateKey]);
 
     const handleGenerateKeys = async () => {
         try {
             const { publicKey, privateKey } = await generateRSAKeyPair();
             setPublicKey(publicKey);
             setPrivateKey(privateKey);
+            setError('');
         } catch (error) {
             console.error('Error generating keys:', error);
+            setError('An error occurred while generating keys.');
         }
     };
 
     const handleEncrypt = async () => {
-        // Implement encryption logic using RSA public key
-        // Update encryptedData state with the encrypted result
+        if (!publicKey || !privateKey) {
+            setError('Please generate public and private keys before encrypting or decrypting data.');
+            return;
+        }
 
-        const result = await encryptWithRSA(dataToEncrypt, publicKey);
-        setEncryptedData(result.encryptedData);
-        setIV(result.iv);
-        setEncryptedAesKey(result.encryptedAesKey);
+        if (!dataToEncrypt || !dataToEncrypt.trim()) {
+            setError('Data to encrypt cannot be empty or contain only whitespace.');
+            return;
+        }
+
+        setError('');
+
+        try {
+            const result = await encryptWithRSA(dataToEncrypt, publicKey);
+            setEncryptedData(result.encryptedData);
+            setIV(result.iv);
+            setEncryptedAesKey(result.encryptedAesKey);
+        } catch (error) {
+            console.error('Error encrypting data:', error);
+            setError('An error occurred while encrypting the data.');
+        }
     };
 
     const handleDecrypt = async () => {
-        // Implement decryption logic using RSA private key
-        // Update decryptedData state with the decrypted result
+        if (!publicKey || !privateKey) {
+            setError('Please generate public and private keys before encrypting or decrypting data.');
+            return;
+        }
+
         try {
             const decryptedData = await decryptWithRSA(encryptedData, iv, encryptedAesKey, privateKey);
-            console.log('Decrypted Data:', decryptedData);
             setDecryptedData(decryptedData);
-
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error decrypting data:', error);
+            setError('An error occurred while decrypting the data.');
         }
     };
 
@@ -76,8 +102,12 @@ const EncryptionForm: React.FC = () => {
                         fullWidth
                         multiline
                         rows={5}
+                        required
                         variant="outlined"
                         style={{ marginTop: 20 }}
+                        error={Boolean(error)}
+                        helperText={error}
+                        autoFocus
                     />
                     <Button variant="contained" onClick={handleEncrypt} fullWidth style={{ marginTop: 20 }}>
                         Encrypt
@@ -119,6 +149,7 @@ const EncryptionForm: React.FC = () => {
                         fullWidth
                         multiline
                         rows={5}
+                        required
                         variant="outlined"
                         disabled
                     />
@@ -128,6 +159,4 @@ const EncryptionForm: React.FC = () => {
     );
 };
 
-
 export default EncryptionForm;
-// EncryptionForm.tsx
