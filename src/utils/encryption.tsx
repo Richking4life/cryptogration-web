@@ -8,63 +8,6 @@ export const generateAesKey = (keySize: number = 256): string => {
   crypto.getRandomValues(array);
   return encodeUint8ArrayToBase64(array);
 };
-
-/**
- * Encrypts data using AES encryption.
- * @param data The data to be encrypted.
- * @param aesKey The AES key used for encryption.
- * @returns An object containing the encrypted data and the IV used for encryption.
- */
-export const encryptData = async (data: string, aesKey: string): Promise<{ encryptedData: string; iv: string }> => {
-  const iv = crypto.getRandomValues(new Uint8Array(16));
-  const encodedData = new TextEncoder().encode(data);
-  const algorithm = { name: 'AES-CBC', iv };
-  const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['encrypt']);
-  const encryptedBuffer = await crypto.subtle.encrypt(algorithm, key, encodedData);
-  return { encryptedData: encodeUint8ArrayToBase64(new Uint8Array(encryptedBuffer)), iv: encodeUint8ArrayToBase64(iv) };
-};
-/**
- * Encrypts an AES key using RSA encryption.
- * @param aesKey The AES key to be encrypted.
- * @param publicKey The RSA public key used for encryption.
- * @param keyFormat The format of the RSA public key (default: 'spki').
- * @returns Base64-encoded string representation of the encrypted AES key.
- */
-export const encryptAesKey = async (aesKey: string, publicKey: string, keyFormat: 'spki' | 'raw' = 'spki'): Promise<string> => {
-  const encodedKey = new TextEncoder().encode(aesKey);
-  const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(publicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
-  const encryptedBuffer = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, encodedKey);
-  return encodeUint8ArrayToBase64(new Uint8Array(encryptedBuffer));
-};
-
-/**
- * Decrypts an AES key using RSA decryption.
- * @param encryptedAesKey The encrypted AES key to be decrypted.
- * @param privateKey The RSA private key used for decryption.
- * @param keyFormat The format of the RSA private key (default: 'pkcs8').
- * @returns The decrypted AES key.
- */
-export const decryptAesKey = async (encryptedAesKey: Uint8Array, privateKey: string, keyFormat: 'pkcs8' | 'raw' = 'pkcs8'): Promise<string> => {
-  const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(privateKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
-  const decryptedBuffer = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, encryptedAesKey);
-  return new TextDecoder().decode(decryptedBuffer);
-};
-
-/**
- * Decrypts data using AES decryption.
- * @param encryptedData The encrypted data to be decrypted.
- * @param aesKey The AES key used for decryption.
- * @param iv The initialization vector (IV) used for encryption.
- * @returns The decrypted data.
- */
-export const decryptData = async (encryptedData: Uint8Array, aesKey: string, iv: Uint8Array): Promise<string> => {
-  const algorithm = { name: 'AES-CBC', iv: iv };
-  const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['decrypt']);
-  const decryptedBuffer = await crypto.subtle.decrypt(algorithm, key, encryptedData);
-  return new TextDecoder().decode(decryptedBuffer);
-};
-
-
 /**
  * Generates an RSA key pair (public and private keys).
  * @returns An object containing the RSA public and private keys.
@@ -95,6 +38,60 @@ export const generateRSAKeyPair = async (): Promise<{ publicKey: string; private
 
   return { publicKey, privateKey };
 };
+/**
+ * Encrypts data using AES encryption.
+ * @param data The data to be encrypted.
+ * @param aesKey The AES key used for encryption.
+ * @returns An object containing the encrypted data and the IV used for encryption.
+ */
+export const aesEncryptor = async (data: string, aesKey: string): Promise<{ encryptedData: string; iv: string }> => {
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const encodedData = new TextEncoder().encode(data);
+  const algorithm = { name: 'AES-CBC', iv };
+  const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['encrypt']);
+  const encryptedBuffer = await crypto.subtle.encrypt(algorithm, key, encodedData);
+  return { encryptedData: encodeUint8ArrayToBase64(new Uint8Array(encryptedBuffer)), iv: encodeUint8ArrayToBase64(iv) };
+};
+/**
+ * Encrypts an AES key using RSA encryption.
+ * @param aesKey The AES key to be encrypted.
+ * @param publicKey The RSA public key used for encryption.
+ * @param keyFormat The format of the RSA public key (default: 'spki').
+ * @returns Base64-encoded string representation of the encrypted AES key.
+ */
+export const rsaEncryptor = async (aesKey: string, publicKey: string, keyFormat: 'spki' | 'raw' = 'spki'): Promise<string> => {
+  const encodedKey = new TextEncoder().encode(aesKey);
+  const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(publicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+  const encryptedBuffer = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, encodedKey);
+  return encodeUint8ArrayToBase64(new Uint8Array(encryptedBuffer));
+};
+
+/**
+ * Decrypts an AES key using RSA decryption.
+ * @param encryptedAesKey The encrypted AES key to be decrypted.
+ * @param privateKey The RSA private key used for decryption.
+ * @param keyFormat The format of the RSA private key (default: 'pkcs8').
+ * @returns The decrypted AES key.
+ */
+export const rsaDecryptor = async (encryptedAesKey: Uint8Array, privateKey: string, keyFormat: 'pkcs8' | 'raw' = 'pkcs8'): Promise<string> => {
+  const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(privateKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+  const decryptedBuffer = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, encryptedAesKey);
+  return new TextDecoder().decode(decryptedBuffer);
+};
+
+/**
+ * Decrypts data using AES decryption.
+ * @param encryptedData The encrypted data to be decrypted.
+ * @param aesKey The AES key used for decryption.
+ * @param iv The initialization vector (IV) used for encryption.
+ * @returns The decrypted data.
+ */
+export const aesDecryptor = async (encryptedData: Uint8Array, aesKey: string, iv: Uint8Array): Promise<string> => {
+  const algorithm = { name: 'AES-CBC', iv: iv };
+  const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['decrypt']);
+  const decryptedBuffer = await crypto.subtle.decrypt(algorithm, key, encryptedData);
+  return new TextDecoder().decode(decryptedBuffer);
+};
 
 /**
  * Encrypts the provided data using AES encryption and encrypts the AES key using RSA encryption.
@@ -102,15 +99,15 @@ export const generateRSAKeyPair = async (): Promise<{ publicKey: string; private
  * @param publicKey The RSA public key used for encrypting the AES key.
  * @returns An object containing the encrypted data, the IV used for encryption, and the encrypted AES key.
  */
-export const encryptWithAesAndRSA = async (data: string, publicKey: string) => {
+export const hybridEncryptor = async (data: string, publicKey: string) => {
   // Generate AES key
   const aesKey = generateAesKey();
 
   // Encrypt data using AES
-  const { encryptedData, iv } = await encryptData(data, aesKey);
+  const { encryptedData, iv } = await aesEncryptor(data, aesKey);
 
   // Encrypt AES key using RSA
-  const encryptedAesKey = await encryptAesKey(aesKey, publicKey);
+  const encryptedAesKey = await rsaEncryptor(aesKey, publicKey);
 
   // Usage example:
   // const combinedData = concatenateUint8Arrays([aesAlg.IV, encryptedAesData, encryptedAesKey]);
@@ -125,16 +122,16 @@ export const encryptWithAesAndRSA = async (data: string, publicKey: string) => {
  * @param privateKey The RSA private key used for decrypting the AES key.
  * @returns The decrypted data.
  */
-export const decryptWithAesAndRSA = async (combinedData: string, privateKey: string): Promise<string> => {
+export const hybridDecryptor = async (combinedData: string, privateKey: string): Promise<string> => {
 
   // Split combinedData into encryptedData, iv, and encryptedAesKey
   const result = splitEncryptedData(combinedData);
 
   // Decrypt AES key using RSA
-  const aesKey = await decryptAesKey(result.encryptedAesKey, privateKey);
+  const aesKey = await rsaDecryptor(result.encryptedAesKey, privateKey);
 
   // Decrypt data using AES
-  const decryptedData = await decryptData(result.encryptedAesData, aesKey, result.aesIv);
+  const decryptedData = await aesDecryptor(result.encryptedAesData, aesKey, result.aesIv);
 
   return decryptedData;
 };
