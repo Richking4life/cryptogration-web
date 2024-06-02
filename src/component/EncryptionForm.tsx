@@ -45,7 +45,6 @@ const EncryptionForm: React.FC = () => {
 
         try {
             const result = await hybridEncryptor(dataToEncrypt, publicKey);
-            //setConbinationData(result)
             setEncryptedData(result)
         } catch (error) {
             console.error('Error encrypting data:', error);

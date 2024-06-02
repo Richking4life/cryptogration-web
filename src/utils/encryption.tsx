@@ -53,6 +53,19 @@ export const aesEncryptor = async (data: string, aesKey: string): Promise<{ encr
   return { encryptedData: encodeUint8ArrayToBase64(new Uint8Array(encryptedBuffer)), iv: encodeUint8ArrayToBase64(iv) };
 };
 /**
+ * Decrypts data using AES decryption.
+ * @param encryptedData The encrypted data to be decrypted.
+ * @param aesKey The AES key used for decryption.
+ * @param iv The initialization vector (IV) used for encryption.
+ * @returns The decrypted data.
+ */
+export const aesDecryptor = async (encryptedData: Uint8Array, aesKey: string, iv: Uint8Array): Promise<string> => {
+  const algorithm = { name: 'AES-CBC', iv: iv };
+  const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['decrypt']);
+  const decryptedBuffer = await crypto.subtle.decrypt(algorithm, key, encryptedData);
+  return new TextDecoder().decode(decryptedBuffer);
+};
+/**
  * Encrypts an AES key using RSA encryption.
  * @param aesKey The AES key to be encrypted.
  * @param publicKey The RSA public key used for encryption.
@@ -65,7 +78,6 @@ export const rsaEncryptor = async (aesKey: string, publicKey: string, keyFormat:
   const encryptedBuffer = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, encodedKey);
   return encodeUint8ArrayToBase64(new Uint8Array(encryptedBuffer));
 };
-
 /**
  * Decrypts an AES key using RSA decryption.
  * @param encryptedAesKey The encrypted AES key to be decrypted.
@@ -76,20 +88,6 @@ export const rsaEncryptor = async (aesKey: string, publicKey: string, keyFormat:
 export const rsaDecryptor = async (encryptedAesKey: Uint8Array, privateKey: string, keyFormat: 'pkcs8' | 'raw' = 'pkcs8'): Promise<string> => {
   const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(privateKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
   const decryptedBuffer = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, encryptedAesKey);
-  return new TextDecoder().decode(decryptedBuffer);
-};
-
-/**
- * Decrypts data using AES decryption.
- * @param encryptedData The encrypted data to be decrypted.
- * @param aesKey The AES key used for decryption.
- * @param iv The initialization vector (IV) used for encryption.
- * @returns The decrypted data.
- */
-export const aesDecryptor = async (encryptedData: Uint8Array, aesKey: string, iv: Uint8Array): Promise<string> => {
-  const algorithm = { name: 'AES-CBC', iv: iv };
-  const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['decrypt']);
-  const decryptedBuffer = await crypto.subtle.decrypt(algorithm, key, encryptedData);
   return new TextDecoder().decode(decryptedBuffer);
 };
 
