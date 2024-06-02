@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPair, encryptWithRSA, decryptWithRSA } from '../utils/encryption';
+import { generateRSAKeyPair, encryptWithAesAndRSA, decryptWithAesAndRSA } from '../utils/encryption';
 
 const EncryptionForm: React.FC = () => {
     //const [iv, setIV] = useState('');
@@ -46,7 +46,7 @@ const EncryptionForm: React.FC = () => {
         setError('');
 
         try {
-            const result = await encryptWithRSA(dataToEncrypt, publicKey);
+            const result = await encryptWithAesAndRSA(dataToEncrypt, publicKey);
             //setConbinationData(result)
             setEncryptedData(result)
         } catch (error) {
@@ -62,7 +62,7 @@ const EncryptionForm: React.FC = () => {
         }
 
         try {
-            const decryptedData = await decryptWithRSA(encryptedData, privateKey);
+            const decryptedData = await decryptWithAesAndRSA(encryptedData, privateKey);
             setDecryptedData(decryptedData);
 
         } catch (error) {

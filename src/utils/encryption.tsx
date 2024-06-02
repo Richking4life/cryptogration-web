@@ -102,7 +102,7 @@ export const generateRSAKeyPair = async (): Promise<{ publicKey: string; private
  * @param publicKey The RSA public key used for encrypting the AES key.
  * @returns An object containing the encrypted data, the IV used for encryption, and the encrypted AES key.
  */
-export const encryptWithRSA = async (data: string, publicKey: string) => {
+export const encryptWithAesAndRSA = async (data: string, publicKey: string) => {
   // Generate AES key
   const aesKey = generateAesKey();
 
@@ -125,7 +125,7 @@ export const encryptWithRSA = async (data: string, publicKey: string) => {
  * @param privateKey The RSA private key used for decrypting the AES key.
  * @returns The decrypted data.
  */
-export const decryptWithRSA = async (combinedData: string, privateKey: string): Promise<string> => {
+export const decryptWithAesAndRSA = async (combinedData: string, privateKey: string): Promise<string> => {
 
   // Split combinedData into encryptedData, iv, and encryptedAesKey
   const result = splitEncryptedData(combinedData);
