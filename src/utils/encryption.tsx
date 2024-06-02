@@ -44,9 +44,9 @@ export const encryptAesKey = async (aesKey: string, publicKey: string, keyFormat
  * @param keyFormat The format of the RSA private key (default: 'pkcs8').
  * @returns The decrypted AES key.
  */
-export const decryptAesKey = async (encryptedAesKey: string, privateKey: string, keyFormat: 'pkcs8' | 'raw' = 'pkcs8'): Promise<string> => {
+export const decryptAesKey = async (encryptedAesKey: Uint8Array, privateKey: string, keyFormat: 'pkcs8' | 'raw' = 'pkcs8'): Promise<string> => {
   const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(privateKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
-  const decryptedBuffer = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, decodeBase64ToUint8Array(encryptedAesKey));
+  const decryptedBuffer = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, encryptedAesKey);
   return new TextDecoder().decode(decryptedBuffer);
 };
 
@@ -57,23 +57,13 @@ export const decryptAesKey = async (encryptedAesKey: string, privateKey: string,
  * @param iv The initialization vector (IV) used for encryption.
  * @returns The decrypted data.
  */
-export const decryptData = async (encryptedData: string, aesKey: string, iv: string): Promise<string> => {
-  const algorithm = { name: 'AES-CBC', iv: decodeBase64ToUint8Array(iv) };
+export const decryptData = async (encryptedData: Uint8Array, aesKey: string, iv: Uint8Array): Promise<string> => {
+  const algorithm = { name: 'AES-CBC', iv: iv };
   const key = await crypto.subtle.importKey('raw', decodeBase64ToUint8Array(aesKey), algorithm, false, ['decrypt']);
-  const decryptedBuffer = await crypto.subtle.decrypt(algorithm, key, decodeBase64ToUint8Array(encryptedData));
+  const decryptedBuffer = await crypto.subtle.decrypt(algorithm, key, encryptedData);
   return new TextDecoder().decode(decryptedBuffer);
 };
 
-
-
-/**
- * Helper function to decode Base64 to Uint8Array.
- * @param base64String The Base64 string to be decoded.
- * @returns Uint8Array.
- */
-const decodeBase64ToUint8Array = (base64String: string): Uint8Array => {
-  return Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
-};
 
 /**
  * Generates an RSA key pair (public and private keys).
@@ -122,9 +112,11 @@ export const encryptWithRSA = async (data: string, publicKey: string) => {
   // Encrypt AES key using RSA
   const encryptedAesKey = await encryptAesKey(aesKey, publicKey);
 
-  return { encryptedData, iv, encryptedAesKey };
+  // Usage example:
+  // const combinedData = concatenateUint8Arrays([aesAlg.IV, encryptedAesData, encryptedAesKey]);
+  // Usage example:
+  return concatenateArraysToString([iv, encryptedData, encryptedAesKey]); //{ encryptedData, iv, encryptedAesKey };
 };
-
 /**
  * Decrypts the provided data using AES decryption and the provided AES key decrypted using RSA decryption.
  * @param encryptedData The encrypted data to be decrypted.
@@ -133,21 +125,138 @@ export const encryptWithRSA = async (data: string, publicKey: string) => {
  * @param privateKey The RSA private key used for decrypting the AES key.
  * @returns The decrypted data.
  */
-export const decryptWithRSA = async (encryptedData: string, iv: string, encryptedAesKey: string, privateKey: string) => {
+export const decryptWithRSA = async (combinedData: string, privateKey: string): Promise<string> => {
+
+  // Split combinedData into encryptedData, iv, and encryptedAesKey
+  const result = splitEncryptedData(combinedData);
+
   // Decrypt AES key using RSA
-  const aesKey = await decryptAesKey(encryptedAesKey, privateKey);
+  const aesKey = await decryptAesKey(result.encryptedAesKey, privateKey);
 
   // Decrypt data using AES
-  const decryptedData = await decryptData(encryptedData, aesKey, iv);
+  const decryptedData = await decryptData(result.encryptedAesData, aesKey, result.aesIv);
 
   return decryptedData;
 };
 
+export const splitUint8Arrays = (combinedData: Uint8Array): (string)[] => {
+  const arrays: (string)[] = [];
+  let offset = 0;
+
+  // Iterate over the combinedData array and split it into separate Uint8Arrays or strings
+  while (offset < combinedData.length) {
+    const nextArrayLength = combinedData[offset];
+    const nextArray = combinedData.slice(offset + 1, offset + 1 + nextArrayLength);
+
+    if (nextArrayLength === 0) {
+      arrays.push('');
+    } else {
+      const decodedString = decodeUint8ArrayToString(nextArray);
+      arrays.push(decodedString);
+    }
+
+    offset += nextArrayLength + 1;
+  }
+
+  return arrays;
+};
+
 /**
  * Helper function to encode Uint8Array to Base64.
- * @param array The Uint8Array to be encoded.
+ * @param array The Uint8Array to be encoded.x
  * @returns Base64-encoded string.
  */
 const encodeUint8ArrayToBase64 = (array: Uint8Array): string => {
-  return btoa(String.fromCharCode.apply(null, Array.from(array)));
+  const binaryString = Array.from(array).map(byte => String.fromCharCode(byte)).join('');
+  return btoa(binaryString);
 };
+
+// const base64ToUint8Array = (base64: string): Uint8Array => {
+//   const binaryString = atob(base64);
+//   const len = binaryString.length;
+//   const bytes = new Uint8Array(len);
+//   for (let i = 0; i < len; i++) {
+//     bytes[i] = binaryString.charCodeAt(i);
+//   }
+//   return bytes;
+// }
+
+const concatenateArraysToString = (arrays: (Uint8Array | string)[]): string => {
+  return arrays.map(item => {
+    if (typeof item === 'string') {
+      return item;
+    } else {
+      // Convert Uint8Array to string using TextDecoder
+      return new TextDecoder().decode(item);
+    }
+  }).join('');
+}
+// const splitEncryptedData = (encryptedDataStr: string): { aesIv: Uint8Array; encryptedAesData: Uint8Array; encryptedAesKey: Uint8Array } => {
+//   // Decode the Base64 string to Uint8Array
+//   const encryptedData = base64ToUint8Array(encryptedDataStr);
+
+//   // Define lengths
+//   const aesIvLength = 16;
+//   const encryptedAesKeyLength = 256;
+//   const encryptedAesDataLength = encryptedData.length - aesIvLength - encryptedAesKeyLength;
+
+//   // Initialize arrays
+//   const aesIv = new Uint8Array(aesIvLength);
+//   const encryptedAesData = new Uint8Array(encryptedAesDataLength);
+//   const encryptedAesKey = new Uint8Array(encryptedAesKeyLength);
+
+//   // Copy data into arrays
+//   aesIv.set(encryptedData.slice(0, aesIvLength));
+//   encryptedAesData.set(encryptedData.slice(aesIvLength, aesIvLength + encryptedAesDataLength));
+//   encryptedAesKey.set(encryptedData.slice(aesIvLength + encryptedAesDataLength, aesIvLength + encryptedAesDataLength + encryptedAesKeyLength));
+
+//   return { aesIv, encryptedAesData, encryptedAesKey };
+// };
+
+
+const decodeBase64ToUint8Array = (base64String: string): Uint8Array => {
+  try {
+    return Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
+  } catch (error) {
+    console.error('Error decoding Base64 string:', error);
+    throw error;
+  }
+};
+
+const decodeUint8ArrayToString = (uint8Array: Uint8Array): string => {
+  return new TextDecoder().decode(uint8Array);
+}
+
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binaryString = window.atob(base64);
+  const length = binaryString.length;
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function splitEncryptedData(encryptedDataStr: string): { aesIv: Uint8Array; encryptedAesData: Uint8Array; encryptedAesKey: Uint8Array } {
+  // Assuming the input is concatenated Base64 strings
+  // const aesIvLength = 16; // bytes
+  // const encryptedAesKeyLength = 256; // bytes
+
+  // Find the boundaries for splitting
+  const aesIvEndIndex = 24; // Base64 encoded 16 bytes
+  const encryptedAesKeyStartIndex = encryptedDataStr.length - 344; // Base64 encoded 256 bytes
+  const encryptedAesKeyEndIndex = encryptedDataStr.length;
+
+  // Extract Base64 strings for each part
+  const aesIvBase64 = encryptedDataStr.substring(0, aesIvEndIndex);
+  const encryptedAesKeyBase64 = encryptedDataStr.substring(encryptedAesKeyStartIndex, encryptedAesKeyEndIndex);
+  const encryptedAesDataBase64 = encryptedDataStr.substring(aesIvEndIndex, encryptedAesKeyStartIndex);
+
+  // Decode Base64 strings to Uint8Array
+  const aesIv = base64ToUint8Array(aesIvBase64);
+  const encryptedAesData = base64ToUint8Array(encryptedAesDataBase64);
+  const encryptedAesKey = base64ToUint8Array(encryptedAesKeyBase64);
+
+  return { aesIv, encryptedAesData, encryptedAesKey };
+}

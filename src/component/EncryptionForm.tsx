@@ -3,10 +3,10 @@ import { Button, Container, Grid, TextField, Typography } from '@mui/material';
 import { generateRSAKeyPair, encryptWithRSA, decryptWithRSA } from '../utils/encryption';
 
 const EncryptionForm: React.FC = () => {
-    const [iv, setIV] = useState('');
+    //const [iv, setIV] = useState('');
     const [publicKey, setPublicKey] = useState('');
     const [privateKey, setPrivateKey] = useState('');
-    const [encryptedAesKey, setEncryptedAesKey] = useState('');
+    //const [encryptedAesKey, setEncryptedAesKey] = useState('');
     const [dataToEncrypt, setDataToEncrypt] = useState('');
     const [encryptedData, setEncryptedData] = useState('');
     const [decryptedData, setDecryptedData] = useState('');
@@ -47,9 +47,8 @@ const EncryptionForm: React.FC = () => {
 
         try {
             const result = await encryptWithRSA(dataToEncrypt, publicKey);
-            setEncryptedData(result.encryptedData);
-            setIV(result.iv);
-            setEncryptedAesKey(result.encryptedAesKey);
+            //setConbinationData(result)
+            setEncryptedData(result)
         } catch (error) {
             console.error('Error encrypting data:', error);
             setError('An error occurred while encrypting the data.');
@@ -63,8 +62,9 @@ const EncryptionForm: React.FC = () => {
         }
 
         try {
-            const decryptedData = await decryptWithRSA(encryptedData, iv, encryptedAesKey, privateKey);
+            const decryptedData = await decryptWithRSA(encryptedData, privateKey);
             setDecryptedData(decryptedData);
+
         } catch (error) {
             console.error('Error decrypting data:', error);
             setError('An error occurred while decrypting the data.');
