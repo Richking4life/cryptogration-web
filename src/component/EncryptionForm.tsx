@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPair, hybridDecryptor, hybridEncryptor } from '../utils/encryption';
+import { generateRSAKeyPairAsync, hybridDecryptorAsync, hybridEncryptAsync } from '../utils/encryption';
 
 const EncryptionForm: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');
@@ -20,7 +20,7 @@ const EncryptionForm: React.FC = () => {
 
     const handleGenerateKeys = async () => {
         try {
-            const { publicKey, privateKey } = await generateRSAKeyPair();
+            const { publicKey, privateKey } = await generateRSAKeyPairAsync();
             // const _publicKey = '-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt49eymH2PzNX7D9/iU2hX09GKKrE5wBBWE8psGf46+u6Ml48L8zPLlWGUAd4nRqf7YJs/M1OaAm7j02Nx3zJFxKmJqkSo3G7inv4CUI344FYAAyzsBHVMQzFGfVBpeDTw5BpbkbnOg/MgwkO5RV1oK4/Dryb6k1jwPhB/AuqGBxirfsDPgkY3irOQi0DJQMMcxurUYohkl8E3WP4ghZx4HKRym9v3hZ6CFI2l72f+69PdtyjzpU7vDpfc0uLrNX0uu1AIuEMFM1rC6qgIP+fns7F91vcJOzaHH1ZyJERJcXXP0mX81bmOmefS9tRGWyziE9jJKjIz3cyQwD8+0aH/QIDAQAB-----END PUBLIC KEY-----';
             setPublicKey('-----BEGIN PUBLIC KEY-----' + publicKey + '-----END PUBLIC KEY-----');
             setPrivateKey('-----BEGIN PRIVATE KEY-----' + privateKey + '-----END PRIVATE KEY-----');
@@ -46,7 +46,7 @@ const EncryptionForm: React.FC = () => {
 
         try {
 
-            const result = await hybridEncryptor(dataToEncrypt, publicKey);
+            const result = await hybridEncryptAsync(dataToEncrypt, publicKey);
             setEncryptedData(result)
         } catch (error) {
             console.error('Error encrypting data:', error);
@@ -61,7 +61,7 @@ const EncryptionForm: React.FC = () => {
         }
 
         try {
-            const decryptedData = await hybridDecryptor(encryptedData, privateKey);
+            const decryptedData = await hybridDecryptorAsync(encryptedData, privateKey);
             setDecryptedData(decryptedData);
 
         } catch (error) {

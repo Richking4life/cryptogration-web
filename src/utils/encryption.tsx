@@ -14,7 +14,7 @@ export const generateAesKey = (keySize: number = 256): string => {
  * Generates an RSA key pair (public and private keys).
  * @returns An object containing the RSA public and private keys.
  */
-export const generateRSAKeyPair = async (): Promise<{ publicKey: string; privateKey: string }> => {
+export const generateRSAKeyPairAsync = async (): Promise<{ publicKey: string; privateKey: string }> => {
   const keys = await crypto.subtle.generateKey(
     {
       name: 'RSA-OAEP',
@@ -101,7 +101,7 @@ export const rsaDecryptor = async (encryptedAesKey: Uint8Array, privateKey: stri
  * @param publicKeyPem - The RSA public key in PEM format used for encryption.
  * @returns A Promise resolving to the Base64-encoded encrypted data.
  */
-export const hybridEncryptor = async (plaintext: string, publicKeyPem: string): Promise<string> => {
+export const hybridEncryptAsync = async (plaintext: string, publicKeyPem: string): Promise<string> => {
   // Read the RSA public key from PEM format
   const publicKey = readRsaKeyFromPem(publicKeyPem);
 
@@ -128,7 +128,7 @@ export const hybridEncryptor = async (plaintext: string, publicKeyPem: string): 
  * @param {string} privateKeyPem - The PEM-encoded RSA private key.
  * @returns {Promise<string>} - The decrypted plaintext.
  */
-export const hybridDecryptor = async (encryptedBase64String: string, privateKeyPem: string): Promise<string> => {
+export const hybridDecryptorAsync = async (encryptedBase64String: string, privateKeyPem: string): Promise<string> => {
   // Decode Base64 and split the concatenated Uint8Array
   const [iv, encryptedData, encryptedAesKey] = await decodeBase64AndSplitUint8Arrays(encryptedBase64String, 16, 256);
 
