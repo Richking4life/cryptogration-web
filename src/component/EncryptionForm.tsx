@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPair, hybridEncryptor, hybridDecryptor } from '../utils/encryption';
+import { generateRSAKeyPair, hybridAesAndRsaEncryption, hybridDecryptor } from '../utils/encryption';
 
 const EncryptionForm: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');
@@ -20,8 +20,9 @@ const EncryptionForm: React.FC = () => {
 
     const handleGenerateKeys = async () => {
         try {
-            const { publicKey, privateKey } = await generateRSAKeyPair();
-            setPublicKey(publicKey);
+            const { privateKey } = await generateRSAKeyPair();
+            const _publicKey = '-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt49eymH2PzNX7D9/iU2hX09GKKrE5wBBWE8psGf46+u6Ml48L8zPLlWGUAd4nRqf7YJs/M1OaAm7j02Nx3zJFxKmJqkSo3G7inv4CUI344FYAAyzsBHVMQzFGfVBpeDTw5BpbkbnOg/MgwkO5RV1oK4/Dryb6k1jwPhB/AuqGBxirfsDPgkY3irOQi0DJQMMcxurUYohkl8E3WP4ghZx4HKRym9v3hZ6CFI2l72f+69PdtyjzpU7vDpfc0uLrNX0uu1AIuEMFM1rC6qgIP+fns7F91vcJOzaHH1ZyJERJcXXP0mX81bmOmefS9tRGWyziE9jJKjIz3cyQwD8+0aH/QIDAQAB-----END PUBLIC KEY-----';
+            setPublicKey(_publicKey);
             setPrivateKey(privateKey);
             setError('');
         } catch (error) {
@@ -44,7 +45,8 @@ const EncryptionForm: React.FC = () => {
         setError('');
 
         try {
-            const result = await hybridEncryptor(dataToEncrypt, publicKey);
+
+            const result = await hybridAesAndRsaEncryption(dataToEncrypt, publicKey);
             setEncryptedData(result)
         } catch (error) {
             console.error('Error encrypting data:', error);
