@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPair, hybridAesAndRsaDecryption, hybridAesAndRsaEncryption } from '../utils/encryption';
+import { generateRSAKeyPair, hybridDecryptor, hybridEncryptor } from '../utils/encryption';
 
 const EncryptionForm: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');
@@ -46,7 +46,7 @@ const EncryptionForm: React.FC = () => {
 
         try {
 
-            const result = await hybridAesAndRsaEncryption(dataToEncrypt, publicKey);
+            const result = await hybridEncryptor(dataToEncrypt, publicKey);
             setEncryptedData(result)
         } catch (error) {
             console.error('Error encrypting data:', error);
@@ -61,7 +61,7 @@ const EncryptionForm: React.FC = () => {
         }
 
         try {
-            const decryptedData = await hybridAesAndRsaDecryption(encryptedData, privateKey);
+            const decryptedData = await hybridDecryptor(encryptedData, privateKey);
             setDecryptedData(decryptedData);
 
         } catch (error) {

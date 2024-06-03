@@ -93,34 +93,6 @@ export const rsaDecryptor = async (encryptedAesKey: Uint8Array, privateKey: stri
   return new TextDecoder().decode(decryptedBuffer);
 };
 /**
- * Splits a combined Uint8Array into an array of strings.
- *
- * @param {Uint8Array} combinedData - The combined data containing multiple encoded strings.
- * @returns {string[]} - An array of decoded strings.
- */
-export const splitUint8Arrays = (combinedData: Uint8Array): string[] => {
-  const arrays: string[] = [];
-  let offset = 0;
-
-  // Iterate over the combinedData array and split it into separate Uint8Arrays or strings.
-  while (offset < combinedData.length) {
-    // The first byte at the current offset indicates the length of the next array.
-    const nextArrayLength = combinedData[offset++];
-
-    // If the next array length is 0, push an empty string to the result array.
-    if (nextArrayLength === 0) {
-      arrays.push('');
-    } else {
-      // Extract and decode the next array directly in the push statement.
-      arrays.push(decodeUint8ArrayToString(combinedData.subarray(offset, offset + nextArrayLength)));
-      // Move the offset to the start of the next array segment.
-      offset += nextArrayLength;
-    }
-  }
-  return arrays;
-};
-
-/**
  * Encrypts plaintext using a hybrid encryption scheme combining AES and RSA.
  * The AES key is randomly generated, and the AES key is encrypted using RSA.
  * The encrypted AES key, IV, and encrypted data are concatenated and encoded to Base64.
@@ -129,7 +101,7 @@ export const splitUint8Arrays = (combinedData: Uint8Array): string[] => {
  * @param publicKeyPem - The RSA public key in PEM format used for encryption.
  * @returns A Promise resolving to the Base64-encoded encrypted data.
  */
-export const hybridAesAndRsaEncryption = async (plaintext: string, publicKeyPem: string): Promise<string> => {
+export const hybridEncryptor = async (plaintext: string, publicKeyPem: string): Promise<string> => {
   // Read the RSA public key from PEM format
   const publicKey = readRsaKeyFromPem(publicKeyPem);
 
@@ -156,7 +128,7 @@ export const hybridAesAndRsaEncryption = async (plaintext: string, publicKeyPem:
  * @param {string} privateKeyPem - The PEM-encoded RSA private key.
  * @returns {Promise<string>} - The decrypted plaintext.
  */
-export const hybridAesAndRsaDecryption = async (encryptedBase64String: string, privateKeyPem: string): Promise<string> => {
+export const hybridDecryptor = async (encryptedBase64String: string, privateKeyPem: string): Promise<string> => {
   // Decode Base64 and split the concatenated Uint8Array
   const [iv, encryptedData, encryptedAesKey] = await decodeBase64AndSplitUint8Arrays(encryptedBase64String, 16, 256);
 
@@ -217,7 +189,7 @@ const generateIv = (): Uint8Array => {
  * @param iv - The initialization vector (IV) used for encryption.
  * @returns The encrypted ciphertext as a Uint8Array.
  */
-const encryptWithAes = async (plaintext: string, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array> => {
+export const encryptWithAes = async (plaintext: string, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array> => {
   // Encode the plaintext string to a Uint8Array
   const encodedText = new TextEncoder().encode(plaintext);
 
@@ -270,16 +242,6 @@ const decodeBase64ToUint8Array = (base64String: string): Uint8Array => {
     console.error('Error decoding Base64 string:', error);
     throw error;
   }
-};
-/**
- * Decodes a Uint8Array to a string.
- *
- * @param {Uint8Array} uint8Array - The Uint8Array to decode.
- * @returns {string} - The decoded string.
- */
-const decodeUint8ArrayToString = (uint8Array: Uint8Array): string => {
-  // Use TextDecoder to decode the Uint8Array to a string
-  return new TextDecoder().decode(uint8Array);
 };
 /**
  * Converts a Base64 string to a Uint8Array.
@@ -360,7 +322,7 @@ const encryptAesKeyWithRsa = (aesKey: Uint8Array, publicKey: forge.pki.rsa.Publi
  * @param {Uint8Array} iv - The initialization vector.
  * @returns {Promise<string>} - The decrypted data as a string.
  */
-const decryptWithAes = async (encryptedData: Uint8Array, aesKey: Uint8Array, iv: Uint8Array): Promise<string> => {
+export const decryptWithAes = async (encryptedData: Uint8Array, aesKey: Uint8Array, iv: Uint8Array): Promise<string> => {
   const cryptoKey = await window.crypto.subtle.importKey(
     'raw',
     aesKey,
@@ -382,7 +344,7 @@ const decryptWithAes = async (encryptedData: Uint8Array, aesKey: Uint8Array, iv:
  * @param {string} privateKeyPem - The PEM-encoded RSA private key.
  * @returns {forge.pki.rsa.PrivateKey} - The RSA private key.
  */
-function readPrivateKeyFromPem(privateKeyPem: string): forge.pki.rsa.PrivateKey {
+const readPrivateKeyFromPem = (privateKeyPem: string): forge.pki.rsa.PrivateKey => {
   return forge.pki.privateKeyFromPem(privateKeyPem) as forge.pki.rsa.PrivateKey;
 }
 
