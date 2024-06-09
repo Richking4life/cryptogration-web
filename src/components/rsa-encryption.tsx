@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPairAsync, hybridDecryptorAsync, hybridEncryptAsync } from '../utils/encryption';
+import Logger from '../utils/logger'
+import { decodeBase64ToUint8Array, encodeUint8ArrayToBase64, generateRSAKeyPair, rsaDecryptor, rsaEncryptor } from '../utils/encryption';
 
-const EncryptionForm: React.FC = () => {
+const RsaEncryptionComponent: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');
+    const [passphrase, setPassPhrase] = useState('');
     const [privateKey, setPrivateKey] = useState('');
     const [dataToEncrypt, setDataToEncrypt] = useState('');
     const [encryptedData, setEncryptedData] = useState('');
@@ -20,13 +22,14 @@ const EncryptionForm: React.FC = () => {
 
     const handleGenerateKeys = async () => {
         try {
-            const { publicKey, privateKey } = await generateRSAKeyPairAsync();
+            const { publicKey, privateKey } = await generateRSAKeyPair(passphrase);
+            setPassPhrase(passphrase);
             // const _publicKey = '-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt49eymH2PzNX7D9/iU2hX09GKKrE5wBBWE8psGf46+u6Ml48L8zPLlWGUAd4nRqf7YJs/M1OaAm7j02Nx3zJFxKmJqkSo3G7inv4CUI344FYAAyzsBHVMQzFGfVBpeDTw5BpbkbnOg/MgwkO5RV1oK4/Dryb6k1jwPhB/AuqGBxirfsDPgkY3irOQi0DJQMMcxurUYohkl8E3WP4ghZx4HKRym9v3hZ6CFI2l72f+69PdtyjzpU7vDpfc0uLrNX0uu1AIuEMFM1rC6qgIP+fns7F91vcJOzaHH1ZyJERJcXXP0mX81bmOmefS9tRGWyziE9jJKjIz3cyQwD8+0aH/QIDAQAB-----END PUBLIC KEY-----';
             setPublicKey('-----BEGIN PUBLIC KEY-----' + publicKey + '-----END PUBLIC KEY-----');
             setPrivateKey('-----BEGIN PRIVATE KEY-----' + privateKey + '-----END PRIVATE KEY-----');
             setError('');
         } catch (error) {
-            console.error('Error generating keys:', error);
+            Logger.error('Error generating keys:' + error);
             setError('An error occurred while generating keys.');
         }
     };
@@ -45,11 +48,10 @@ const EncryptionForm: React.FC = () => {
         setError('');
 
         try {
-
-            const result = await hybridEncryptAsync(dataToEncrypt, publicKey);
-            setEncryptedData(result)
+            const result = await rsaEncryptor(dataToEncrypt, publicKey);
+            setEncryptedData(encodeUint8ArrayToBase64(result))
         } catch (error) {
-            console.error('Error encrypting data:', error);
+            Logger.error('Error encrypting data:' + error);
             setError('An error occurred while encrypting the data.');
         }
     };
@@ -61,7 +63,7 @@ const EncryptionForm: React.FC = () => {
         }
 
         try {
-            const decryptedData = await hybridDecryptorAsync(encryptedData, privateKey);
+            const decryptedData = await rsaDecryptor(decodeBase64ToUint8Array(encryptedData), privateKey);
             setDecryptedData(decryptedData);
 
         } catch (error) {
@@ -83,7 +85,7 @@ const EncryptionForm: React.FC = () => {
                         Generate Keys
                     </Button>
                     <TextField
-                        label="Public Key"
+                        label="PassPhrase"
                         value={publicKey}
                         fullWidth
                         multiline
@@ -91,6 +93,16 @@ const EncryptionForm: React.FC = () => {
                         variant="outlined"
                         style={{ marginTop: 20 }}
                         disabled
+                    />
+                    <TextField
+                        label="Public Key"
+                        value={passphrase}
+                        fullWidth
+                        multiline
+                        rows={5}
+                        variant="outlined"
+                        style={{ marginTop: 20 }}
+
                     />
                 </Grid>
                 <Grid item xs={6}>
@@ -158,4 +170,4 @@ const EncryptionForm: React.FC = () => {
     );
 };
 
-export default EncryptionForm;
+export default RsaEncryptionComponent;

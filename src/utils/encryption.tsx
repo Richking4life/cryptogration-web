@@ -1,20 +1,10 @@
-import * as forge from 'node-forge';
 
 /**
- * Generate a random AES key.
- * @param keySize The size of the AES key.
- * @returns Base64-encoded string representation of the generated AES key.
- */
-export const generateAesKey = (keySize: number = 256): string => {
-  const array = new Uint8Array(keySize / 8);
-  crypto.getRandomValues(array);
-  return encodeUint8ArrayToBase64(array);
-};
-/**
- * Generates an RSA key pair (public and private keys).
- * @returns An object containing the RSA public and private keys.
- */
-export const generateRSAKeyPairAsync = async (): Promise<{ publicKey: string; privateKey: string }> => {
+* Generates an RSA key pair (public and private keys).
+* @returns An object containing the RSA public and private keys.
+*/
+export const generateRSAKeyPair = async (passphrase: string): Promise<{ publicKey: string; privateKey: string }> => {
+  // Generate RSA key pair
   const keys = await crypto.subtle.generateKey(
     {
       name: 'RSA-OAEP',
@@ -32,14 +22,43 @@ export const generateRSAKeyPairAsync = async (): Promise<{ publicKey: string; pr
   // Convert public key to base64 string
   const publicKey = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPublicKey))));
 
-  // Export private key
-  const exportedPrivateKey = await crypto.subtle.exportKey('pkcs8', keys.privateKey);
+  // Create a key for wrapping the private key using the passphrase
+  const passphraseKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(passphrase),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
 
-  // Convert private key to base64 string
-  const privateKey = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPrivateKey))));
+  // Derive an AES key from the passphrase key
+  const wrappingKey = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: crypto.getRandomValues(new Uint8Array(16)),
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    passphraseKey,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['wrapKey', 'unwrapKey']
+  );
+
+  // Wrap (encrypt) the private key using the wrapping key
+  const wrappedPrivateKey = await crypto.subtle.wrapKey(
+    'pkcs8',
+    keys.privateKey,
+    wrappingKey,
+    { name: 'AES-GCM', iv: crypto.getRandomValues(new Uint8Array(12)) }
+  );
+
+  // Convert wrapped private key to base64 string
+  const privateKey = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(wrappedPrivateKey))));
 
   return { publicKey, privateKey };
 };
+
 /**
  * Encrypts data using AES encryption.
  * @param data The data to be encrypted.
@@ -76,7 +95,7 @@ export const aesDecryptor = async (encryptedData: Uint8Array, aesKey: string, iv
  */
 export const rsaEncryptor = async (aesKey: string, publicKey: string, keyFormat: 'spki' | 'raw' = 'spki'): Promise<Uint8Array> => {
   const encodedKey = new TextEncoder().encode(aesKey);
-  const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(publicKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+  const key = await crypto.subtle.importKey(keyFormat, pemToUint8Array(publicKey) as Uint8Array, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
   const encryptedBuffer = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, encodedKey);
   return new Uint8Array(encryptedBuffer);
 };
@@ -88,7 +107,7 @@ export const rsaEncryptor = async (aesKey: string, publicKey: string, keyFormat:
  * @returns The decrypted AES key.
  */
 export const rsaDecryptor = async (encryptedAesKey: Uint8Array, privateKey: string, keyFormat: 'pkcs8' | 'raw' = 'pkcs8'): Promise<string> => {
-  const key = await crypto.subtle.importKey(keyFormat, decodeBase64ToUint8Array(privateKey), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+  const key = await crypto.subtle.importKey(keyFormat, pemToUint8Array(privateKey) as Uint8Array, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
   const decryptedBuffer = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, encryptedAesKey);
   return new TextDecoder().decode(decryptedBuffer);
 };
@@ -103,7 +122,7 @@ export const rsaDecryptor = async (encryptedAesKey: Uint8Array, privateKey: stri
  */
 export const hybridEncryptAsync = async (plaintext: string, publicKeyPem: string): Promise<string> => {
   // Read the RSA public key from PEM format
-  const publicKey = readRsaKeyFromPem(publicKeyPem);
+  //const publicKey = readRsaKeyFromPem(publicKeyPem);
 
   // Generate a random AES key
   const aesKey = await aesKeyGenerate();
@@ -115,7 +134,7 @@ export const hybridEncryptAsync = async (plaintext: string, publicKeyPem: string
   const encryptedAesData = await encryptWithAes(plaintext, aesKey, iv);
 
   // Encrypt the AES key with RSA
-  const encryptedAesKey = encryptAesKeyWithRsa(aesKey, publicKey);
+  const encryptedAesKey = await rsaEncryptor(encodeUint8ArrayToBase64(aesKey), publicKeyPem);
 
   // Concatenate the IV, encrypted AES data, and encrypted AES key, and encode to Base64
   return concatenateUint8ArraysAndEncodeBase64([iv, encryptedAesData, encryptedAesKey]);
@@ -133,13 +152,13 @@ export const hybridDecryptorAsync = async (encryptedBase64String: string, privat
   const [iv, encryptedData, encryptedAesKey] = await decodeBase64AndSplitUint8Arrays(encryptedBase64String, 16, 256);
 
   // Read RSA private key from PEM
-  const privateKey = readPrivateKeyFromPem(privateKeyPem);
+  //const privateKey = readPrivateKeyFromPem(privateKeyPem);
 
   // Decrypt the AES key with RSA
-  const decryptedAesKey = decryptAesKeyWithRsa(encryptedAesKey, privateKey);
+  const decryptedAesKey = await rsaDecryptor(encryptedAesKey, privateKeyPem);
 
   // Decrypt the data with AES
-  const decryptedData = await decryptWithAes(encryptedData, decryptedAesKey, iv);
+  const decryptedData = await decryptWithAes(encryptedData, decodeBase64ToUint8Array(decryptedAesKey) as Uint8Array, iv);
 
   return decryptedData;
 };
@@ -218,7 +237,7 @@ export const encryptWithAes = async (plaintext: string, key: Uint8Array, iv: Uin
  * @param array The Uint8Array to be encoded.x
  * @returns Base64-encoded string.
  */
-const encodeUint8ArrayToBase64 = (array: Uint8Array): string => {
+export const encodeUint8ArrayToBase64 = (array: Uint8Array): string => {
   // Convert Uint8Array to regular array
   const byteArray = Array.from(array);
   // Create a binary string from the byte array
@@ -233,7 +252,7 @@ const encodeUint8ArrayToBase64 = (array: Uint8Array): string => {
  * @param {string} base64String - The Base64 string to decode.
  * @returns {Uint8Array} - The decoded Uint8Array.
  */
-const decodeBase64ToUint8Array = (base64String: string): Uint8Array => {
+export const decodeBase64ToUint8Array = (base64String: string): Uint8Array => {
   try {
     // Decode the Base64 string and convert it to a Uint8Array
     return Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
@@ -270,51 +289,6 @@ const concatenateUint8ArraysAndEncodeBase64 = async (arrays: Uint8Array[]): Prom
 }
 
 /**
- * Reads an RSA public key from a PEM formatted string.
- *
- * @param publicKeyPem - The PEM formatted string containing the RSA public key.
- * @returns The RSA public key object.
- */
-const readRsaKeyFromPem = (publicKeyPem: string): forge.pki.rsa.PublicKey => {
-  // Parse the PEM formatted string to obtain the public key object
-  const pemObject = forge.pki.publicKeyFromPem(publicKeyPem);
-
-  // Return the RSA public key object
-  return pemObject;
-}
-
-/**
- * Encrypts an AES key using RSA with ECB and PKCS1 padding.
- *
- * @param aesKey - The AES key to be encrypted as a Uint8Array.
- * @param publicKey - The RSA public key used for encryption.
- * @returns The encrypted AES key as a Uint8Array.
- */
-const encryptAesKeyWithRsa = (aesKey: Uint8Array, publicKey: forge.pki.rsa.PublicKey): Uint8Array => {
-  // Convert Uint8Array to a binary string
-  // This step transforms each byte in the AES key into its corresponding character representation
-  let binaryString = '';
-  for (let i = 0; i < aesKey.length; i++) {
-    binaryString += String.fromCharCode(aesKey[i]);
-  }
-
-  // Encrypt the binary string AES key with RSA using RSAES-PKCS1-V1_5 padding
-  // This encryption method uses RSA encryption with the public key provided
-  const encryptedBinaryString = publicKey.encrypt(binaryString, 'RSAES-PKCS1-V1_5');
-
-  // Convert the encrypted binary string back to a Uint8Array
-  // This step involves creating a new Uint8Array and filling it with the encrypted data
-  const encryptedArrayBuffer = new ArrayBuffer(encryptedBinaryString.length);
-  const encryptedUint8Array = new Uint8Array(encryptedArrayBuffer);
-  for (let i = 0; i < encryptedBinaryString.length; i++) {
-    encryptedUint8Array[i] = encryptedBinaryString.charCodeAt(i);
-  }
-
-  // Return the encrypted AES key as a Uint8Array
-  return encryptedUint8Array;
-}
-
-/**
  * Decrypts data using AES decryption.
  *
  * @param {Uint8Array} encryptedData - The encrypted data.
@@ -337,40 +311,6 @@ export const decryptWithAes = async (encryptedData: Uint8Array, aesKey: Uint8Arr
   );
   return new TextDecoder().decode(decryptedBuffer);
 };
-
-/**
- * Reads an RSA private key from PEM format.
- * 
- * @param {string} privateKeyPem - The PEM-encoded RSA private key.
- * @returns {forge.pki.rsa.PrivateKey} - The RSA private key.
- */
-const readPrivateKeyFromPem = (privateKeyPem: string): forge.pki.rsa.PrivateKey => {
-  return forge.pki.privateKeyFromPem(privateKeyPem) as forge.pki.rsa.PrivateKey;
-}
-
-/**
- * Decrypts an AES key using RSA decryption.
- * 
- * @param {Uint8Array} encryptedAesKey - The encrypted AES key.
- * @param {forge.pki.rsa.PrivateKey} privateKey - The RSA private key.
- * @returns {Uint8Array} - The decrypted AES key.
- */
-const decryptAesKeyWithRsa = (encryptedAesKey: Uint8Array, privateKey: forge.pki.rsa.PrivateKey): Uint8Array => {
-  let encryptedBinaryString = '';
-  for (let i = 0; i < encryptedAesKey.length; i++) {
-    encryptedBinaryString += String.fromCharCode(encryptedAesKey[i]);
-  }
-
-  const decryptedBinaryString = privateKey.decrypt(encryptedBinaryString, 'RSAES-PKCS1-V1_5');
-
-  const decryptedUint8Array = new Uint8Array(decryptedBinaryString.length);
-  for (let i = 0; i < decryptedBinaryString.length; i++) {
-    decryptedUint8Array[i] = decryptedBinaryString.charCodeAt(i);
-  }
-
-  return decryptedUint8Array;
-};
-
 /**
  * Decodes a Base64 string and splits it into IV, encrypted AES key, and encrypted data.
  *
@@ -395,4 +335,64 @@ const decodeBase64AndSplitUint8Arrays = async (base64String: string, ivLength: n
   const encryptedAesKey = concatenatedArray.subarray(concatenatedArray.length - keyLength);
 
   return [aesIv, encryptedAesData, encryptedAesKey];
+};
+
+
+/**
+ * Converts a PEM-formatted string (public key or unencrypted private key) to a Uint8Array.
+ * 
+ * **Security Warning:** This function does not handle passphrase-protected private keys 
+ * due to security concerns. It's strongly recommended to avoid using unencrypted private keys 
+ * in browser environments. Consider secure key management solutions for private keys.
+ *
+ * @param pemString The PEM-formatted string containing the key data.
+ * @returns A Uint8Array representing the decoded key data, or null if the format is invalid.
+ */
+const pemToUint8Array = (pemString: string): Uint8Array | null => {
+  // Check for Private Key (unencrypted) format
+  if (pemString.includes('-----BEGIN PRIVATE KEY-----')) {
+    console.warn('**Security Warning:** Handling unencrypted private keys in a browser is not recommended.');
+    return parsePemPrivateKey(pemString);
+  }
+
+  // Check for Public Key format
+  else if (pemString.includes('-----BEGIN PUBLIC KEY-----')) {
+    return parsePemPublicKey(pemString);
+  }
+
+  // Invalid format
+  else {
+    console.error('Invalid PEM format');
+    return null;
+  }
+};
+
+/**
+ * Parses a PEM-formatted unencrypted private key and returns a Uint8Array.
+ *
+ * @param pemString The PEM-formatted string containing the private key.
+ * @returns A Uint8Array representing the decoded private key data, or null if parsing fails.
+ */
+const parsePemPrivateKey = (pemString: string): Uint8Array | null => {
+  // Remove header/footer and decode base64
+  const strippedPem = pemString.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '');
+  const base64Decoded = atob(strippedPem);
+
+  // Convert base64 decoded string to Uint8Array
+  return new Uint8Array(base64Decoded.length).fill(0).map((_, i) => base64Decoded.charCodeAt(i));
+};
+
+/**
+ * Parses a PEM-formatted public key and returns a Uint8Array.
+ *
+ * @param pemString The PEM-formatted string containing the public key.
+ * @returns A Uint8Array representing the decoded public key data, or null if parsing fails.
+ */
+const parsePemPublicKey = (pemString: string): Uint8Array | null => {
+  // Remove header/footer and decode base64
+  const strippedPem = pemString.replace(/-----BEGIN PUBLIC KEY-----/, '').replace(/-----END PUBLIC KEY-----/, '');
+  const base64Decoded = atob(strippedPem);
+
+  // Convert base64 decoded string to Uint8Array
+  return new Uint8Array(base64Decoded.length).fill(0).map((_, i) => base64Decoded.charCodeAt(i));
 };
