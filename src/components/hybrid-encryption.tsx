@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { cryptoKeyToPem, decryptPrivateKey, generateAndWrapRSAKeyPair, generateRandomPassword, hybridDecryptorAsync, hybridEncryptAsync } from '../utils/encryption';
+import {
+    cryptoKeyToPem,
+    decryptPrivateKey,
+    generateAndWrapRSAKeyPair,
+    generateRandomPassword,
+    hybridDecryptorAsync,
+    hybridEncryptAsync
+} from '../utils/encryption';
 
 const HybridEncryptionComponent: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');

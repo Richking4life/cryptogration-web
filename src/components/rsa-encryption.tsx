@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
 import Logger from '../utils/logger'
-import { decodeBase64ToUint8Array, encodeUint8ArrayToBase64, decryptPrivateKey, generateAndWrapRSAKeyPair, rsaDecryptor, rsaEncryptor, cryptoKeyToPem, generateRandomPassword, generateSecurePassphrase } from '../utils/encryption';
+import {
+    decodeBase64ToUint8Array,
+    encodeUint8ArrayToBase64,
+    decryptPrivateKey,
+    generateAndWrapRSAKeyPair,
+    rsaDecryptor, rsaEncryptor,
+    cryptoKeyToPem,
+    generateRandomPassword
+} from '../utils/encryption';
 
 const RsaEncryptionComponent: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');
