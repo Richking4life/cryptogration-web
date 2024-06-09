@@ -5,7 +5,7 @@
  * @param {string} passphrase - The passphrase used to wrap the private key.
  * @returns {Promise<{ publicKey: string; wrappedPrivateKey: string; salt: string; iv: string }>} - A promise that resolves to the public key, wrapped private key, salt, and IV.
  */
-export const generateAndWrapRSAKeyPair = async (passphrase: string): Promise<{ publicKey: string; wrappedPrivateKey: string; salt: string; iv: string }> => {
+export const generateAndWrapRSAKeyPair = async (passphrase: string): Promise<{publicKey: string; wrappedPrivateKey: string; salt: string; iv: string }> => {
   // Generate RSA key pair
   const keys = await crypto.subtle.generateKey(
     {

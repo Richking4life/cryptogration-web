@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Container, Grid, TextField, Typography } from '@mui/material';
+import { Button, Container, Grid, InputAdornment, TextField, Typography } from '@mui/material';
+//import { TextField, Button, IconButton, InputAdornment } from '@material-ui/core';
 import Logger from '../utils/logger'
+
+import 'bootstrap/dist/css/bootstrap.min.css';
+import '../App.css'; // Custom CSS for additional styling
+
 import {
     decodeBase64ToUint8Array,
     encodeUint8ArrayToBase64,
@@ -21,6 +26,10 @@ const RsaEncryptionComponent: React.FC = () => {
     const [error, setError] = useState<string>('');
     const [passPhraseError, setPassPhraseError] = useState<string>('');
 
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text);
+        // alert('Copied to clipboard');
+    };
     useEffect(() => {
 
         if (passPhraseError)
@@ -106,7 +115,19 @@ const RsaEncryptionComponent: React.FC = () => {
                         helperText={passPhraseError}
                         variant="outlined"
                         style={{ marginTop: 1 }}
-
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => handleCopy(passphrase)}
+                                        disabled={!passphrase}
+                                    >
+                                        📋
+                                    </button>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
                     <TextField
                         label="Public Key"
@@ -117,6 +138,19 @@ const RsaEncryptionComponent: React.FC = () => {
                         variant="outlined"
                         style={{ marginTop: 20 }}
                         disabled
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => handleCopy(publicKey)}
+                                        disabled={!passphrase}
+                                    >
+                                        📋
+                                    </button>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
                 </Grid>
                 <Grid item xs={6}>
@@ -129,6 +163,19 @@ const RsaEncryptionComponent: React.FC = () => {
                         rows={5}
                         variant="outlined"
                         disabled
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => handleCopy(privateKey)}
+                                        disabled={!passphrase}
+                                    >
+                                        📋
+                                    </button>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
 
 

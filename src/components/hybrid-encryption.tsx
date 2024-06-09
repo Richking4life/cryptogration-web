@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Container, Grid, TextField, Typography } from '@mui/material';
+import { Button, Container, Grid, InputAdornment, TextField, Typography } from '@mui/material';
+
+import 'bootstrap/dist/css/bootstrap.min.css';
+import '../App.css'; // Custom CSS for additional styling
+
 import {
     cryptoKeyToPem,
     decryptPrivateKey,
@@ -17,15 +21,19 @@ const HybridEncryptionComponent: React.FC = () => {
     const [encryptedData, setEncryptedData] = useState('');
     const [decryptedData, setDecryptedData] = useState('');
     const [error, setError] = useState<string>('');
+    const [passPhraseError, setPassPhraseError] = useState<string>('');
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text);
+        //alert('Copied to clipboard');
+    };
 
     useEffect(() => {
-        if (!publicKey || !privateKey) {
-            setError('Please generate public and private keys before encrypting or decrypting data.');
-            return;
-        }
 
-    }, [publicKey, privateKey]);
+        if (passPhraseError)
+            setPassPhraseError('');
 
+
+    }, [passphrase, passPhraseError]);
     const handleGenerateKeys = async () => {
         try {
             setPassPhrase(generateRandomPassword(50))
@@ -87,7 +95,7 @@ const HybridEncryptionComponent: React.FC = () => {
             <Grid container spacing={3}>
                 <Grid item xs={12}>
                     <Typography variant="h4" gutterBottom>
-                        Hybrid RSA-AES Encryption & Decryption
+                        RSA Encryption & Decryption
                     </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -96,15 +104,28 @@ const HybridEncryptionComponent: React.FC = () => {
                         label="private passphrase"
                         value={passphrase}
                         fullWidth
+                        onChange={(e) => setPassPhrase(e.target.value)}
                         multiline
-                        rows={5}
-                        variant="outlined"
-                        style={{ marginTop: 20 }}
+                        rows={1}
                         disabled
+                        error={Boolean(passPhraseError)}
+                        helperText={passPhraseError}
+                        variant="outlined"
+                        style={{ marginTop: 1 }}
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => handleCopy(passphrase)}
+                                        disabled={!passphrase}
+                                    >
+                                        📋
+                                    </button>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
-                    <Button variant="contained" onClick={handleGenerateKeys} fullWidth>
-                        Generate Keys
-                    </Button>
                     <TextField
                         label="Public Key"
                         value={publicKey}
@@ -114,6 +135,19 @@ const HybridEncryptionComponent: React.FC = () => {
                         variant="outlined"
                         style={{ marginTop: 20 }}
                         disabled
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => handleCopy(publicKey)}
+                                        disabled={!publicKey}
+                                    >
+                                        📋
+                                    </button>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
                 </Grid>
                 <Grid item xs={6}>
@@ -126,9 +160,25 @@ const HybridEncryptionComponent: React.FC = () => {
                         rows={5}
                         variant="outlined"
                         disabled
+                        InputProps={{
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => handleCopy(privateKey)}
+                                        disabled={!privateKey}
+                                    >
+                                        📋
+                                    </button>
+                                </InputAdornment>
+                            ),
+                        }}
                     />
 
 
+                    <Button variant="contained" onClick={handleGenerateKeys} fullWidth>
+                        Generate Keys
+                    </Button>
 
                 </Grid>
                 <Grid item xs={12}>
