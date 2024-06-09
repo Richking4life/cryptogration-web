@@ -1,9 +1,11 @@
 
 /**
-* Generates an RSA key pair (public and private keys).
-* @returns An object containing the RSA public and private keys.
-*/
-export const generateRSAKeyPair = async (passphrase: string): Promise<{ publicKey: string; privateKey: string }> => {
+ * Generates an RSA key pair and wraps the private key using the provided passphrase.
+ * 
+ * @param {string} passphrase - The passphrase used to wrap the private key.
+ * @returns {Promise<{ publicKey: string; wrappedPrivateKey: string; salt: string; iv: string }>} - A promise that resolves to the public key, wrapped private key, salt, and IV.
+ */
+export const generateAndWrapRSAKeyPair = async (passphrase: string): Promise<{ publicKey: string; wrappedPrivateKey: string; salt: string; iv: string }> => {
   // Generate RSA key pair
   const keys = await crypto.subtle.generateKey(
     {
@@ -18,9 +20,11 @@ export const generateRSAKeyPair = async (passphrase: string): Promise<{ publicKe
 
   // Export public key
   const exportedPublicKey = await crypto.subtle.exportKey('spki', keys.publicKey);
-
-  // Convert public key to base64 string
   const publicKey = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPublicKey))));
+
+  // Export private key
+  //const exportedPrivateKey = await crypto.subtle.exportKey('pkcs8', keys.privateKey);
+  //const privateKey = new Uint8Array(exportedPrivateKey);
 
   // Create a key for wrapping the private key using the passphrase
   const passphraseKey = await crypto.subtle.importKey(
@@ -32,10 +36,11 @@ export const generateRSAKeyPair = async (passphrase: string): Promise<{ publicKe
   );
 
   // Derive an AES key from the passphrase key
+  const salt = crypto.getRandomValues(new Uint8Array(16));
   const wrappingKey = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: crypto.getRandomValues(new Uint8Array(16)),
+      salt: salt,
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -46,18 +51,23 @@ export const generateRSAKeyPair = async (passphrase: string): Promise<{ publicKe
   );
 
   // Wrap (encrypt) the private key using the wrapping key
+  const iv = crypto.getRandomValues(new Uint8Array(12));
   const wrappedPrivateKey = await crypto.subtle.wrapKey(
     'pkcs8',
     keys.privateKey,
     wrappingKey,
-    { name: 'AES-GCM', iv: crypto.getRandomValues(new Uint8Array(12)) }
+    { name: 'AES-GCM', iv: iv }
   );
 
-  // Convert wrapped private key to base64 string
-  const privateKey = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(wrappedPrivateKey))));
+  // Convert wrapped private key, salt, and IV to base64 string
+  const wrappedPrivateKeyBase64 = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(wrappedPrivateKey))));
+  const saltBase64 = btoa(String.fromCharCode.apply(null, Array.from(salt)));
+  const ivBase64 = btoa(String.fromCharCode.apply(null, Array.from(iv)));
 
-  return { publicKey, privateKey };
+  return { publicKey, wrappedPrivateKey: wrappedPrivateKeyBase64, salt: saltBase64, iv: ivBase64 };
 };
+
+
 
 /**
  * Encrypts data using AES encryption.
@@ -350,10 +360,12 @@ const decodeBase64AndSplitUint8Arrays = async (base64String: string, ivLength: n
  */
 const pemToUint8Array = (pemString: string): Uint8Array | null => {
   // Check for Private Key (unencrypted) format
-  if (pemString.includes('-----BEGIN PRIVATE KEY-----')) {
+  if (pemString.includes('-----BEGIN PRIVATE KEY-----') || pemString.includes('-----BEGIN ENCRYPTED PRIVATE KEY-----')) {
     console.warn('**Security Warning:** Handling unencrypted private keys in a browser is not recommended.');
     return parsePemPrivateKey(pemString);
   }
+
+
 
   // Check for Public Key format
   else if (pemString.includes('-----BEGIN PUBLIC KEY-----')) {
@@ -374,8 +386,13 @@ const pemToUint8Array = (pemString: string): Uint8Array | null => {
  * @returns A Uint8Array representing the decoded private key data, or null if parsing fails.
  */
 const parsePemPrivateKey = (pemString: string): Uint8Array | null => {
+
   // Remove header/footer and decode base64
-  const strippedPem = pemString.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '');
+  const strippedPem = pemString.replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/-----BEGIN ENCRYPTED PRIVATE KEY-----/, '')
+    .replace(/-----END ENCRYPTED PRIVATE KEY-----/, '');
+
   const base64Decoded = atob(strippedPem);
 
   // Convert base64 decoded string to Uint8Array
@@ -395,4 +412,128 @@ const parsePemPublicKey = (pemString: string): Uint8Array | null => {
 
   // Convert base64 decoded string to Uint8Array
   return new Uint8Array(base64Decoded.length).fill(0).map((_, i) => base64Decoded.charCodeAt(i));
+};
+
+/**
+ * Decrypts a wrapped private key using the provided passphrase, salt, and IV.
+ * 
+ * @param {string} wrappedPrivateKeyBase64 - The wrapped private key in base64 format.
+ * @param {string} passphrase - The passphrase used to encrypt the private key.
+ * @param {string} saltBase64 - The salt in base64 format.
+ * @param {string} ivBase64 - The initialization vector (IV) in base64 format.
+ * @param {number} modulusLength - The modulus length used for RSA key generation (e.g., 2048).
+ * @returns {Promise<CryptoKey>} - A promise that resolves to the decrypted private key.
+ */
+export const decryptPrivateKey = async (
+  wrappedPrivateKeyBase64: string,
+  passphrase: string,
+  saltBase64: string,
+  ivBase64: string,
+): Promise<CryptoKey> => {
+  // Convert base64 strings to Uint8Array
+  const wrappedPrivateKey = Uint8Array.from(atob(wrappedPrivateKeyBase64), c => c.charCodeAt(0));
+  const salt = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
+  const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+
+  // Import the passphrase as a key using PBKDF2
+  const passphraseKey = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(passphrase),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+
+  // Derive the AES-GCM key from the passphrase key
+  const unwrappingKey = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    passphraseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['unwrapKey']
+  );
+
+  // Unwrap (decrypt) the private key using the AES-GCM unwrapping key
+  const privateKey = await crypto.subtle.unwrapKey(
+    'pkcs8',
+    wrappedPrivateKey,
+    unwrappingKey,
+    { name: 'AES-GCM', iv: iv },
+    {
+      name: 'RSA-OAEP',
+      hash: 'SHA-256'
+    },
+    true,
+    ['decrypt']
+  );
+
+  return privateKey;
+};
+/**
+ * Converts a CryptoKey object to a PEM-encoded private key.
+ * 
+ * @param {CryptoKey} cryptoKey - The CryptoKey object to convert.
+ * @returns {Promise<string>} - A promise that resolves to the PEM-encoded private key.
+ */
+export const cryptoKeyToPem = async (cryptoKey: CryptoKey): Promise<string> => {
+
+  // Export the CryptoKey to PKCS8 format
+  const exported = await crypto.subtle.exportKey('pkcs8', cryptoKey);
+
+  // Convert the exported key to a base64 string
+  const exportedAsBase64 = btoa(String.fromCharCode(...new Uint8Array(exported)));
+
+  // Format the base64 string as a PEM-encoded key
+  const pemKey = `-----BEGIN PRIVATE KEY-----\n${exportedAsBase64.match(/.{1,64}/g)?.join('\n')}\n-----END PRIVATE KEY-----`;
+
+  return pemKey;
+};
+
+/**
+ * Generates a random password with a specified length and character set.
+ *
+ * @param {number} length - The desired length of the password (recommended to be at least 12 characters).
+ * @param {boolean} includeUppercase - Whether to include uppercase letters in the password (default: true).
+ * @param {boolean} includeLowercase - Whether to include lowercase letters in the password (default: true).
+ * @param {boolean} includeNumbers - Whether to include numbers in the password (default: true).
+ * @param {boolean} includeSymbols - Whether to include symbols in the password (default: true).
+ * @returns {string} - The generated random password.
+ */
+export const generateRandomPassword = (
+  length: number = 12,
+  includeUppercase = true,
+  includeLowercase = true,
+  includeNumbers = true,
+  includeSymbols = true
+): string => {
+  let characterSet = '';
+
+  if (includeUppercase) {
+    characterSet += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  }
+  if (includeLowercase) {
+    characterSet += 'abcdefghijklmnopqrstuvwxyz';
+  }
+  if (includeNumbers) {
+    characterSet += '0123456789';
+  }
+  if (includeSymbols) {
+    characterSet += '!@#$%^&*()-_=+[]{};:,<.>/?';
+  }
+
+  if (!characterSet) {
+    throw new Error('At least one character set must be included.');
+  }
+
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += characterSet.charAt(Math.floor(Math.random() * characterSet.length));
+  }
+
+  return password;
 };

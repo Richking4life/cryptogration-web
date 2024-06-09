@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Container, Grid, TextField, Typography } from '@mui/material';
-import { generateRSAKeyPair, hybridDecryptorAsync, hybridEncryptAsync } from '../utils/encryption';
+import { cryptoKeyToPem, decryptPrivateKey, generateAndWrapRSAKeyPair, generateRandomPassword, hybridDecryptorAsync, hybridEncryptAsync } from '../utils/encryption';
 
 const HybridEncryptionComponent: React.FC = () => {
     const [publicKey, setPublicKey] = useState('');
@@ -14,19 +14,20 @@ const HybridEncryptionComponent: React.FC = () => {
     useEffect(() => {
         if (!publicKey || !privateKey) {
             setError('Please generate public and private keys before encrypting or decrypting data.');
-        } else {
-            setError('');
+            return;
         }
+
     }, [publicKey, privateKey]);
 
     const handleGenerateKeys = async () => {
         try {
+            setPassPhrase(generateRandomPassword(50))
+            const pair = await generateAndWrapRSAKeyPair(passphrase);
+            const privatekey = await cryptoKeyToPem(await decryptPrivateKey(pair.wrappedPrivateKey, passphrase, pair.salt, pair.iv));
 
-            const { publicKey, privateKey } = await generateRSAKeyPair(passphrase);
-            setPassPhrase(passphrase);
             // const _publicKey = '-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt49eymH2PzNX7D9/iU2hX09GKKrE5wBBWE8psGf46+u6Ml48L8zPLlWGUAd4nRqf7YJs/M1OaAm7j02Nx3zJFxKmJqkSo3G7inv4CUI344FYAAyzsBHVMQzFGfVBpeDTw5BpbkbnOg/MgwkO5RV1oK4/Dryb6k1jwPhB/AuqGBxirfsDPgkY3irOQi0DJQMMcxurUYohkl8E3WP4ghZx4HKRym9v3hZ6CFI2l72f+69PdtyjzpU7vDpfc0uLrNX0uu1AIuEMFM1rC6qgIP+fns7F91vcJOzaHH1ZyJERJcXXP0mX81bmOmefS9tRGWyziE9jJKjIz3cyQwD8+0aH/QIDAQAB-----END PUBLIC KEY-----';
-            setPublicKey('-----BEGIN PUBLIC KEY-----' + publicKey + '-----END PUBLIC KEY-----');
-            setPrivateKey('-----BEGIN ENCRYPTED PRIVATE KEY-----' + privateKey + '-----END ENCRYPTED PRIVATE KEY-----');
+            setPublicKey('-----BEGIN PUBLIC KEY-----' + pair.publicKey + '-----END PUBLIC KEY-----');
+            setPrivateKey('-----BEGIN ENCRYPTED PRIVATE KEY-----' + privatekey + '-----END ENCRYPTED PRIVATE KEY-----');
             setError('');
         } catch (error) {
             console.error('Error generating keys:', error);
@@ -35,6 +36,7 @@ const HybridEncryptionComponent: React.FC = () => {
     };
 
     const handleEncrypt = async () => {
+
         if (!publicKey || !privateKey) {
             setError('Please generate public and private keys before encrypting or decrypting data.');
             return;
@@ -84,14 +86,14 @@ const HybridEncryptionComponent: React.FC = () => {
                 <Grid item xs={6}>
 
                     <TextField
-                        label="enter private key 'passphrase' here"
+                        label="private passphrase"
                         value={passphrase}
                         fullWidth
                         multiline
-                        rows={1}
+                        rows={5}
                         variant="outlined"
-                        style={{ marginTop: 5 }}
-
+                        style={{ marginTop: 20 }}
+                        disabled
                     />
                     <Button variant="contained" onClick={handleGenerateKeys} fullWidth>
                         Generate Keys
@@ -155,6 +157,8 @@ const HybridEncryptionComponent: React.FC = () => {
                     />
                 </Grid>
                 <Grid item xs={6}>
+
+
                     <TextField
                         label="Decrypted Data"
                         value={decryptedData}
