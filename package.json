@@ -1,5 +1,6 @@
 {
   "name": "csrf-antiforgery-prevention-web",
+  "homepage": "https://richking4life.github.io/cryptogration-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -20,6 +21,7 @@
     "buffer": "^6.0.3",
     "crypto": "^1.0.1",
     "dotenv": "^16.3.1",
+    "firstchekout": "^1.5.3",
     "node-libs-browser": "^2.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.2.0",
@@ -38,6 +40,7 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "gh-pages": "^6.2.0",
     "typescript": "^5.4.5",
     "vite": "^5.0.8"
   }

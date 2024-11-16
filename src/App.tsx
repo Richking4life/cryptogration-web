@@ -5,16 +5,22 @@ import RsaEncryptionComponent from './components/rsa-encryption'
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <div>
-        <h2>Security Enhancement - WebApp Utility</h2>
-        <Routes>
-          <Route path="/hybrid" element={<HybridEncryptionComponent />} />
+    <div>
+      <Router>
+        <div>
+          <h2>Security Enhancement - WebApp Utility</h2>
+          <Routes>
+            <Route path="/hybrid" element={<HybridEncryptionComponent />} />
 
-          <Route path="/rsa" element={<RsaEncryptionComponent />} />
-        </Routes>
+            <Route path="/rsa" element={<RsaEncryptionComponent />} />
+          </Routes>
+        </div>
+      </Router>
+
+      <div>
+      
       </div>
-    </Router>
+    </div>
   );
 };
 
