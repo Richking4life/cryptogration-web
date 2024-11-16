@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "types": ["crypto-browserify"],
+    //"types": ["crypto-browserify"],
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+
 
     /* Bundler mode */
     "moduleResolution": "bundler",
